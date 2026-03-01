@@ -96,8 +96,42 @@ class FirebaseService:
             return {'id': doc.id, **doc.to_dict()}
         return None
     
+    def get_expense_count(self, user_id):
+        """Get total count of expenses for a user"""
+        expenses = self.db.collection('expenses').where('user_id', '==', user_id).stream()
+        return sum(1 for _ in expenses)
+    
+    def get_cached_advice(self, user_id):
+        """Get cached AI advice for user"""
+        user_ref = self.db.collection('users').document(user_id)
+        user_doc = user_ref.get()
+        if user_doc.exists:
+            user_data = user_doc.to_dict()
+            return user_data.get('cached_advice'), user_data.get('advice_expense_count')
+        return None, None
+    
+    def cache_advice(self, user_id, advice, expense_count):
+        """Cache AI advice for user. Pass None for advice to clear cache."""
+        user_ref = self.db.collection('users').document(user_id)
+        if advice is not None:
+            update_data = {
+                'cached_advice': advice,
+                'advice_expense_count': expense_count,
+                'advice_updated_at': firestore.SERVER_TIMESTAMP
+            }
+            user_ref.update(update_data)
+        else:
+            # Clear cache by setting to None
+            try:
+                user_ref.update({
+                    'cached_advice': None,
+                    'advice_expense_count': None
+                })
+            except:
+                pass
+    
     # Expense Operations
-    def create_expense(self, user_id, merchant, amount, category, date, description=None, receipt_image=None):
+    def create_expense(self, user_id, merchant, amount, category, date, description=None, receipt_image=None, items=None):
         """Create a new expense"""
         expense_ref = self.db.collection('expenses').document()
         expense_data = {
@@ -108,10 +142,47 @@ class FirebaseService:
             'date': date if isinstance(date, datetime) else datetime.now(),
             'description': description or '',
             'receipt_image': receipt_image,
+            'items': items if items else [],
             'created_at': firestore.SERVER_TIMESTAMP
         }
         expense_ref.set(expense_data)
         return expense_ref.id
+    
+    def update_expense(self, expense_id, merchant=None, amount=None, category=None, date=None, description=None, items=None):
+        """Update an existing expense"""
+        expense_ref = self.db.collection('expenses').document(expense_id)
+        update_data = {}
+        
+        if merchant is not None:
+            update_data['merchant'] = merchant
+        if amount is not None:
+            update_data['amount'] = float(amount)
+        if category is not None:
+            update_data['category'] = category
+        if date is not None:
+            update_data['date'] = date if isinstance(date, datetime) else datetime.now()
+        if description is not None:
+            update_data['description'] = description
+        if items is not None:
+            update_data['items'] = items
+        
+        update_data['updated_at'] = firestore.SERVER_TIMESTAMP
+        expense_ref.update(update_data)
+        return True
+    
+    def get_expense(self, expense_id):
+        """Get a single expense by ID"""
+        doc = self.db.collection('expenses').document(expense_id).get()
+        if doc.exists:
+            data = doc.to_dict()
+            # Convert Firestore timestamp to datetime
+            if 'date' in data:
+                if hasattr(data['date'], 'timestamp'):
+                    data['date'] = datetime.fromtimestamp(data['date'].timestamp())
+                elif hasattr(data['date'], 'seconds'):
+                    data['date'] = datetime.fromtimestamp(data['date'].seconds)
+            return {'id': doc.id, **data}
+        return None
     
     def get_expenses(self, user_id, limit=None):
         """Get expenses for a user"""

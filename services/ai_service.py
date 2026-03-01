@@ -67,8 +67,10 @@ Extract the following information from this receipt:
 - category (Food, Transportation, Shopping, Entertainment, Bills, Other)
 - date (if visible, otherwise use today's date: """ + datetime.now().strftime('%Y-%m-%d') + """)
 - brief description
+- items: an array of individual items from the receipt, each with "name" and "price" (e.g., [{"name": "Grilled Chicken", "price": 15.50}, {"name": "Fries", "price": 5.00}])
 
-Return ONLY a valid JSON object with these keys: merchant, amount, category, date (YYYY-MM-DD format), description.
+Return ONLY a valid JSON object with these keys: merchant, amount, category, date (YYYY-MM-DD format), description, items (array of objects with name and price).
+If items are not clearly listed, create a single item with the total amount.
 Do not include any markdown formatting, just the raw JSON."""
             
             # Use Gemini Pro Vision to extract expense data
@@ -103,6 +105,19 @@ Do not include any markdown formatting, just the raw JSON."""
             # Ensure amount is float
             if 'amount' in expense_data:
                 expense_data['amount'] = float(expense_data['amount'])
+            
+            # Ensure items is a list
+            if 'items' not in expense_data or not isinstance(expense_data['items'], list):
+                # If no items, create one item with the total amount
+                expense_data['items'] = [{
+                    'name': expense_data.get('description', 'Item'),
+                    'price': expense_data.get('amount', 0)
+                }]
+            else:
+                # Ensure all items have name and price as float
+                for item in expense_data['items']:
+                    if 'price' in item:
+                        item['price'] = float(item['price'])
             
             return expense_data
         

@@ -79,30 +79,46 @@ def index():
     # Calculate totals
     total_expenses = firebase.get_total_expenses(user['id'])
     
-    # Get AI advice - convert expenses to dict-like format for AI service
+    # Get AI advice - only regenerate if expenses have changed
     recent_advice = None
     if expenses:
-        # Create expense objects compatible with AI service
-        expense_objects = []
-        for exp in expenses:
-            class ExpenseObj:
-                def __init__(self, data):
-                    self.category = data.get('category', 'Other')
-                    self.amount = data.get('amount', 0)
-            expense_objects.append(ExpenseObj(exp))
+        # Get current expense count
+        current_expense_count = firebase.get_expense_count(user['id'])
         
-        budget_objects = []
-        for budget in budgets:
-            class BudgetObj:
-                def __init__(self, data, user_id):
-                    self.category = data.get('category', 'Other')
-                    self.amount = data.get('amount', 0)
-                    self.user_id = user_id
-                def get_spent(self, user_id):
-                    return firebase.get_budget_spent(user_id, self.category)
-            budget_objects.append(BudgetObj(budget, user['id']))
+        # Get cached advice and expense count when it was generated
+        cached_advice, cached_expense_count = firebase.get_cached_advice(user['id'])
         
-        recent_advice = ai_service.get_financial_advice(user['id'], expense_objects, budget_objects)
+        # Only regenerate if expense count has changed
+        if cached_advice and cached_expense_count == current_expense_count:
+            # Use cached advice - expenses haven't changed
+            recent_advice = cached_advice
+        else:
+            # Expenses have changed or no cache exists - generate new advice
+            # Create expense objects compatible with AI service
+            expense_objects = []
+            for exp in expenses:
+                class ExpenseObj:
+                    def __init__(self, data):
+                        self.category = data.get('category', 'Other')
+                        self.amount = data.get('amount', 0)
+                expense_objects.append(ExpenseObj(exp))
+            
+            budget_objects = []
+            for budget in budgets:
+                class BudgetObj:
+                    def __init__(self, data, user_id):
+                        self.category = data.get('category', 'Other')
+                        self.amount = data.get('amount', 0)
+                        self.user_id = user_id
+                    def get_spent(self, user_id):
+                        return firebase.get_budget_spent(user_id, self.category)
+                budget_objects.append(BudgetObj(budget, user['id']))
+            
+            recent_advice = ai_service.get_financial_advice(user['id'], expense_objects, budget_objects)
+            
+            # Cache the new advice
+            if recent_advice:
+                firebase.cache_advice(user['id'], recent_advice, current_expense_count)
     
     return render_template('dashboard.html', 
                          user=user, 
@@ -152,25 +168,26 @@ def upload_receipt():
                 storage_path = f"receipts/{user['id']}/{filename}"
                 image_url = firebase.upload_file(filepath, storage_path)
                 
-                # Create expense record in Firestore
-                expense_id = firebase.create_expense(
-                    user_id=user['id'],
-                    merchant=expense_data.get('merchant', 'Unknown'),
-                    amount=expense_data.get('amount', 0),
-                    category=expense_data.get('category', 'Other'),
-                    date=expense_data.get('date', datetime.now()),
-                    description=expense_data.get('description', ''),
-                    receipt_image=image_url  # Store Firebase Storage URL
-                )
+                # Store image path temporarily in session for edit modal
+                # We'll save the expense after user confirms/edits
+                expense_data['receipt_image'] = image_url
+                expense_data['temp_filepath'] = filepath  # Keep file until confirmed
                 
-                # Clean up temporary file
-                try:
-                    os.remove(filepath)
-                except:
-                    pass
+                # Convert date to string for template
+                if isinstance(expense_data.get('date'), datetime):
+                    expense_data['date'] = expense_data['date'].strftime('%Y-%m-%d')
                 
-                flash('Expense added successfully!', 'success')
-                return redirect(url_for('index'))
+                # Ensure items is a list
+                if 'items' not in expense_data or not expense_data['items']:
+                    expense_data['items'] = [{
+                        'name': expense_data.get('description', 'Item'),
+                        'price': expense_data.get('amount', 0)
+                    }]
+                
+                # Render upload page with edit modal
+                return render_template('upload.html', 
+                                     expense_data=expense_data,
+                                     show_edit_modal=True)
             
             except Exception as e:
                 flash(f'Error processing image: {str(e)}', 'error')
@@ -213,6 +230,140 @@ def expenses():
     
     return render_template('expenses.html', expenses=expenses)
 
+@app.route('/expenses/save', methods=['POST'])
+def save_expense():
+    """Save expense after user edits (from OCR modal)"""
+    if not firebase:
+        flash('Firebase not configured.', 'error')
+        return redirect(url_for('upload_receipt'))
+    
+    try:
+        data = request.get_json()
+        user = firebase.get_first_user()
+        if not user:
+            flash('User not found', 'error')
+            return jsonify({'error': 'User not found'}), 400
+        
+        # Parse items from JSON
+        items = data.get('items', [])
+        if isinstance(items, str):
+            import json
+            items = json.loads(items)
+        
+        # Calculate total from items if provided
+        amount = data.get('amount', 0)
+        if items and len(items) > 0:
+            # If items provided, sum them up
+            calculated_total = sum(float(item.get('price', 0)) for item in items)
+            # Use provided amount or calculated total
+            amount = float(amount) if amount else calculated_total
+        
+        # Parse date
+        date_str = data.get('date', datetime.now().strftime('%Y-%m-%d'))
+        try:
+            expense_date = datetime.strptime(date_str, '%Y-%m-%d')
+        except:
+            expense_date = datetime.now()
+        
+        # Create expense
+        expense_id = firebase.create_expense(
+            user_id=user['id'],
+            merchant=data.get('merchant', 'Unknown'),
+            amount=amount,
+            category=data.get('category', 'Other'),
+            date=expense_date,
+            description=data.get('description', ''),
+            receipt_image=data.get('receipt_image', ''),
+            items=items
+        )
+        
+        # Clean up temporary file if exists
+        temp_filepath = data.get('temp_filepath')
+        if temp_filepath and os.path.exists(temp_filepath):
+            try:
+                os.remove(temp_filepath)
+            except:
+                pass
+        
+        return jsonify({'success': True, 'expense_id': expense_id})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/expenses/<expense_id>', methods=['GET'])
+def get_expense(expense_id):
+    """Get expense details for editing"""
+    if not firebase:
+        return jsonify({'error': 'Firebase not configured'}), 500
+    
+    try:
+        expense = firebase.get_expense(expense_id)
+        if not expense:
+            return jsonify({'error': 'Expense not found'}), 404
+        
+        # Convert date to string for JSON
+        if isinstance(expense.get('date'), datetime):
+            expense['date'] = expense['date'].strftime('%Y-%m-%d')
+        
+        return jsonify(expense)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/expenses/<expense_id>', methods=['POST'])
+def update_expense(expense_id):
+    """Update an existing expense"""
+    if not firebase:
+        flash('Firebase not configured.', 'error')
+        return redirect(url_for('expenses'))
+    
+    try:
+        data = request.get_json()
+        
+        # Parse items
+        items = data.get('items', [])
+        if isinstance(items, str):
+            import json
+            items = json.loads(items)
+        
+        # Calculate amount from items if provided
+        amount = data.get('amount', 0)
+        if items and len(items) > 0:
+            calculated_total = sum(float(item.get('price', 0)) for item in items)
+            amount = float(amount) if amount else calculated_total
+        
+        # Parse date
+        date_str = data.get('date', '')
+        expense_date = None
+        if date_str:
+            try:
+                expense_date = datetime.strptime(date_str, '%Y-%m-%d')
+            except:
+                pass
+        
+        # Update expense
+        firebase.update_expense(
+            expense_id=expense_id,
+            merchant=data.get('merchant'),
+            amount=amount,
+            category=data.get('category'),
+            date=expense_date,
+            description=data.get('description'),
+            items=items
+        )
+        
+        # Clear cached advice since expense was updated
+        user = firebase.get_first_user()
+        if user:
+            try:
+                firebase.cache_advice(user['id'], None, None)  # Clear cache
+            except:
+                pass
+        
+        return jsonify({'success': True})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/expenses/delete/<expense_id>', methods=['POST'])
 def delete_expense(expense_id):
     """Delete an expense"""
@@ -223,6 +374,13 @@ def delete_expense(expense_id):
     try:
         success = firebase.delete_expense(expense_id)
         if success:
+            # Clear cached advice since expense was deleted
+            user = firebase.get_first_user()
+            if user:
+                try:
+                    firebase.cache_advice(user['id'], None, None)  # Clear cache
+                except:
+                    pass
             flash('Expense deleted successfully!', 'success')
         else:
             flash('Failed to delete expense.', 'error')

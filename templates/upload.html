@@ -49,9 +49,180 @@
             <li>• Make sure the total amount and merchant name are visible</li>
             <li>• You can also upload screenshots from e-wallet apps</li>
             <li>• Our AI will automatically extract and categorize your expense</li>
+            <li>• You can edit the amount and items before saving (useful for splitting bills!)</li>
         </ul>
     </div>
 </div>
+
+<!-- Edit Expense Modal (shown after OCR) -->
+{% if show_edit_modal and expense_data %}
+<div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: flex;">
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-2xl font-bold text-gray-800">Review & Edit Expense</h3>
+            <button onclick="closeEditModal()" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+        </div>
+        
+        <form id="expenseEditForm" onsubmit="saveExpense(event)">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Merchant</label>
+                    <input type="text" id="editMerchant" name="merchant" value="{{ expense_data.merchant }}" 
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2" required>
+                </div>
+                
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Date</label>
+                    <input type="date" id="editDate" name="date" 
+                           value="{% if expense_data.date is string %}{{ expense_data.date[:10] }}{% else %}{{ expense_data.date.strftime('%Y-%m-%d') }}{% endif %}" 
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2" required>
+                </div>
+                
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Category</label>
+                    <select id="editCategory" name="category" class="w-full border border-gray-300 rounded-lg px-4 py-2" required>
+                        <option value="Food" {% if expense_data.category == 'Food' %}selected{% endif %}>Food</option>
+                        <option value="Transportation" {% if expense_data.category == 'Transportation' %}selected{% endif %}>Transportation</option>
+                        <option value="Shopping" {% if expense_data.category == 'Shopping' %}selected{% endif %}>Shopping</option>
+                        <option value="Entertainment" {% if expense_data.category == 'Entertainment' %}selected{% endif %}>Entertainment</option>
+                        <option value="Bills" {% if expense_data.category == 'Bills' %}selected{% endif %}>Bills</option>
+                        <option value="Other" {% if expense_data.category == 'Other' %}selected{% endif %}>Other</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Description</label>
+                    <textarea id="editDescription" name="description" rows="2" 
+                              class="w-full border border-gray-300 rounded-lg px-4 py-2">{{ expense_data.description or '' }}</textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Items</label>
+                    <div id="itemsList" class="space-y-2 mb-2">
+                        <!-- Items will be populated by JavaScript -->
+                    </div>
+                    <button type="button" onclick="addItemRow()" class="text-purple-600 hover:text-purple-700 text-sm font-semibold">
+                        + Add Item
+                    </button>
+                </div>
+                
+                <div>
+                    <label class="block text-gray-700 font-semibold mb-2">Total Amount ($)</label>
+                    <input type="number" id="editAmount" name="amount" step="0.01" min="0" 
+                           value="{{ expense_data.amount }}" 
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2" required>
+                    <p class="text-xs text-gray-500 mt-1">💡 Tip: If you split the bill, enter only your portion here</p>
+                </div>
+            </div>
+            
+            <div class="flex justify-end space-x-4 mt-6">
+                <button type="button" onclick="closeEditModal()" 
+                        class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button type="submit" 
+                        class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+                    Save Expense
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Initialize items list
+const expenseData = {{ expense_data | tojson | safe }};
+let items = expenseData.items || [];
+if (items.length === 0) {
+    items = [{'name': expenseData.description || 'Item', 'price': expenseData.amount || 0}];
+}
+
+function renderItems() {
+    const itemsList = document.getElementById('itemsList');
+    itemsList.innerHTML = '';
+    items.forEach((item, index) => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'flex space-x-2';
+        itemDiv.innerHTML = `
+            <input type="text" placeholder="Item name" value="${item.name || ''}" 
+                   onchange="updateItem(${index}, 'name', this.value)"
+                   class="flex-1 border border-gray-300 rounded-lg px-3 py-2">
+            <input type="number" placeholder="Price" step="0.01" min="0" value="${item.price || 0}" 
+                   onchange="updateItem(${index}, 'price', parseFloat(this.value)); updateTotal()"
+                   class="w-24 border border-gray-300 rounded-lg px-3 py-2">
+            <button type="button" onclick="removeItem(${index})" 
+                    class="text-red-500 hover:text-red-700 px-2">🗑️</button>
+        `;
+        itemsList.appendChild(itemDiv);
+    });
+    updateTotal();
+}
+
+function updateItem(index, field, value) {
+    if (!items[index]) items[index] = {};
+    items[index][field] = value;
+}
+
+function removeItem(index) {
+    items.splice(index, 1);
+    renderItems();
+}
+
+function addItemRow() {
+    items.push({name: '', price: 0});
+    renderItems();
+}
+
+function updateTotal() {
+    const total = items.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0);
+    document.getElementById('editAmount').value = total.toFixed(2);
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+    window.location.href = '{{ url_for("upload_receipt") }}';
+}
+
+function saveExpense(event) {
+    event.preventDefault();
+    
+    const formData = {
+        merchant: document.getElementById('editMerchant').value,
+        date: document.getElementById('editDate').value,
+        category: document.getElementById('editCategory').value,
+        description: document.getElementById('editDescription').value,
+        amount: parseFloat(document.getElementById('editAmount').value),
+        items: items,
+        receipt_image: expenseData.receipt_image,
+        temp_filepath: expenseData.temp_filepath
+    };
+    
+    fetch('{{ url_for("save_expense") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = '{{ url_for("index") }}';
+        } else {
+            alert('Error saving expense: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        alert('Error saving expense: ' + error);
+    });
+}
+
+// Initialize on page load
+if (document.getElementById('editModal')) {
+    renderItems();
+}
+</script>
+{% endif %}
 
 <script>
 function previewImage(input) {
