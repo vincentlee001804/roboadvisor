@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Setup - AI Robo-Advisor{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto">
+    <div class="bg-white rounded-lg shadow-lg p-8">
+        <h2 class="text-3xl font-bold text-gray-800 mb-6 text-center">Welcome! 👋</h2>
+        <p class="text-gray-600 mb-6 text-center">Let's set up your account to get started</p>
+        
+        <form method="POST" class="space-y-4">
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2" for="name">Your Name</label>
+                <input type="text" 
+                       name="name" 
+                       id="name" 
+                       required
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+                       placeholder="Enter your name">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2" for="email">Email</label>
+                <input type="email" 
+                       name="email" 
+                       id="email" 
+                       required
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+                       placeholder="your.email@example.com">
+            </div>
+            <button type="submit" 
+                    class="w-full bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition">
+                Get Started
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

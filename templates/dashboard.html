@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - AI Robo-Advisor{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h2 class="text-3xl font-bold text-gray-800 mb-2">Welcome back, {{ user.name }}!</h2>
+    <p class="text-gray-600">Here's your financial overview</p>
+</div>
+
+<!-- Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-gray-600 text-sm font-semibold mb-2">Total Expenses</h3>
+        <p class="text-3xl font-bold text-gray-800">${{ "%.2f"|format(total_expenses) }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-gray-600 text-sm font-semibold mb-2">Recent Expenses</h3>
+        <p class="text-3xl font-bold text-gray-800">{{ expenses|length }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-gray-600 text-sm font-semibold mb-2">Active Budgets</h3>
+        <p class="text-3xl font-bold text-gray-800">{{ budgets|length }}</p>
+    </div>
+</div>
+
+<!-- AI Advice Card -->
+{% if advice %}
+<div class="bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg shadow-lg p-6 mb-8 text-white">
+    <h3 class="text-xl font-bold mb-3">🤖 Your AI Financial Advisor</h3>
+    <p class="text-lg">{{ advice }}</p>
+</div>
+{% endif %}
+
+<!-- Recent Expenses -->
+<div class="bg-white rounded-lg shadow p-6 mb-8">
+    <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold text-gray-800">Recent Expenses</h3>
+        <a href="{{ url_for('upload_receipt') }}" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+            + Add Expense
+        </a>
+    </div>
+    
+    {% if expenses %}
+    <div class="overflow-x-auto">
+        <table class="min-w-full">
+            <thead>
+                <tr class="border-b">
+                    <th class="text-left py-2 px-4">Date</th>
+                    <th class="text-left py-2 px-4">Merchant</th>
+                    <th class="text-left py-2 px-4">Category</th>
+                    <th class="text-right py-2 px-4">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for expense in expenses %}
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="py-2 px-4">
+                        {% if expense.date is string %}
+                            {{ expense.date[:10] }}
+                        {% else %}
+                            {{ expense.date.strftime('%Y-%m-%d') }}
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-4">{{ expense.merchant }}</td>
+                    <td class="py-2 px-4">
+                        <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-sm">
+                            {{ expense.category }}
+                        </span>
+                    </td>
+                    <td class="py-2 px-4 text-right font-semibold">${{ "%.2f"|format(expense.amount) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-gray-500 text-center py-8">No expenses yet. Upload a receipt to get started!</p>
+    {% endif %}
+</div>
+
+<!-- Budget Overview -->
+{% if budgets %}
+<div class="bg-white rounded-lg shadow p-6">
+    <h3 class="text-xl font-bold text-gray-800 mb-4">Budget Status</h3>
+    <div class="space-y-4">
+        {% for budget in budgets %}
+        {% set spent = budget.spent if budget.spent is defined else 0 %}
+        {% set remaining = budget.remaining if budget.remaining is defined else budget.amount %}
+        {% set percentage = budget.percentage if budget.percentage is defined else 0 %}
+        <div>
+            <div class="flex justify-between mb-2">
+                <span class="font-semibold">{{ budget.category }}</span>
+                <span class="text-gray-600">${{ "%.2f"|format(spent) }} / ${{ "%.2f"|format(budget.amount) }}</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                <div class="bg-{{ 'red' if percentage > 100 else 'green' if percentage < 50 else 'yellow' }}-500 h-2.5 rounded-full" 
+                     style="width: {{ [percentage, 100]|min }}%"></div>
+            </div>
+            <p class="text-sm text-gray-500 mt-1">
+                {% if remaining < 0 %}
+                    Over budget by ${{ "%.2f"|format(-remaining) }}
+                {% else %}
+                    ${{ "%.2f"|format(remaining) }} remaining
+                {% endif %}
+            </p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
