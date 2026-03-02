@@ -27,31 +27,10 @@
 <!-- AI Advice Card -->
 {% if advice %}
 <div class="bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg shadow-lg p-6 mb-8 text-white" style="width: 100%; overflow: visible;">
-    <div class="flex justify-between items-start mb-3">
-        <h3 class="text-xl font-bold">🤖 Your AI Financial Advisor</h3>
-        <button onclick="toggleDebugInfo()" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white text-xs px-3 py-1 rounded font-semibold transition">
-            🔧 Debug
-        </button>
-    </div>
-    <p class="text-lg leading-relaxed mb-3" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; max-width: 100%; display: block; overflow: visible;">{{ advice }}</p>
-    
-    <!-- Debug Info Panel (hidden by default) -->
-    <div id="debugInfo" class="hidden mt-4 bg-white bg-opacity-20 rounded p-4 text-sm">
-        <div class="space-y-2">
-            <p><strong>Advice Length:</strong> {{ advice|length }} characters, {{ advice.split()|length }} words</p>
-            <p><strong>Full Text:</strong> <span class="font-mono text-xs break-all">{{ advice }}</span></p>
-            <p><strong>Expense Count:</strong> {{ expenses|length }}</p>
-            <p><strong>Total Expenses:</strong> ${{ "%.2f"|format(total_expenses) }}</p>
-            <div class="mt-3 flex gap-2">
-                <button onclick="regenerateAdvice()" class="bg-white bg-opacity-30 hover:bg-opacity-40 text-white px-4 py-2 rounded font-semibold transition">
-                    🔄 Regenerate Advice
-                </button>
-                <button onclick="clearAdviceCache()" class="bg-white bg-opacity-30 hover:bg-opacity-40 text-white px-4 py-2 rounded font-semibold transition">
-                    🗑️ Clear Cache
-                </button>
-            </div>
-        </div>
-    </div>
+    <h3 class="text-xl font-bold mb-3">🤖 Your AI Financial Advisor</h3>
+    <p class="text-lg leading-relaxed" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal; max-width: 100%; display: block; overflow: visible;">
+        {{ advice }}
+    </p>
 </div>
 {% endif %}
 
@@ -138,62 +117,4 @@
 </div>
 {% endif %}
 
-<script>
-function toggleDebugInfo() {
-    const debugInfo = document.getElementById('debugInfo');
-    if (debugInfo) {
-        debugInfo.classList.toggle('hidden');
-    }
-}
-
-async function regenerateAdvice() {
-    try {
-        const response = await fetch('/regenerate-advice', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-                alert('Advice regenerated! Reloading page...');
-                window.location.reload();
-            } else {
-                alert('Error: ' + (data.error || 'Failed to regenerate advice'));
-            }
-        } else {
-            alert('Server error: ' + response.status);
-        }
-    } catch (error) {
-        alert('Error: ' + error.message);
-    }
-}
-
-async function clearAdviceCache() {
-    try {
-        const response = await fetch('/clear-advice-cache', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.success) {
-                alert('Cache cleared! Reloading page...');
-                window.location.reload();
-            } else {
-                alert('Error: ' + (data.error || 'Failed to clear cache'));
-            }
-        } else {
-            alert('Server error: ' + response.status);
-        }
-    } catch (error) {
-        alert('Error: ' + error.message);
-    }
-}
-</script>
 {% endblock %}
