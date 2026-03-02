@@ -233,173 +233,52 @@ Do not include any markdown formatting, just the raw JSON."""
                     'amount': exp['amount']
                 })
             
-            # Get top category
-            top_category = max(monthly_summary.items(), key=lambda x: x[1]) if monthly_summary else ('Other', 0)
-            
-            prompt = f"""You are a friendly financial advisor for students. Generate a complete, concise comment (8-12 words) about this month's spending.
+            # Build a concise, single-call prompt for Gemini using expense details
+            prompt = f"""You are a friendly financial advisor for students.
+Analyze the student's recent spending and give short, practical advice.
 
-This Month's Expenses:
+Recent expenses (JSON list of items with merchant, category, amount, description):
 {json.dumps(monthly_expenses, indent=2)}
 
-Spending by Category This Month:
+Spending by category (this month):
 {json.dumps(monthly_summary, indent=2)}
 
-Total Spent This Month: ${monthly_total:.2f}
-Top Category: {top_category[0]} (${top_category[1]:.2f})
+Optional budget summary (if any budgets exist):
+{json.dumps(budget_summary, indent=2)}
 
-CRITICAL REQUIREMENTS:
-- Your response MUST be a COMPLETE sentence (8-12 words)
-- MUST end with proper punctuation (. ! or ?)
-- MUST mention the top category "{top_category[0]}" and amount ${top_category[1]:.2f}
-- MUST be a full, grammatically correct sentence
-- Example: "Spent ${top_category[1]:.2f} on {top_category[0]} this month. Consider cooking more to save money."
-
-Generate your complete comment now (must be a full sentence ending with punctuation):"""
+Please provide 2–3 short sentences of advice:
+- Mention any categories where spending is high or risky
+- Give 1–2 concrete, student-friendly tips to improve their finances
+- Keep the tone encouraging, not scolding.
+"""
             
-            # Use Gemini Pro for text generation
-            # Increased tokens to ensure complete response
+            # Single Gemini call for advice
             response = self.text_model.generate_content(
                 prompt,
                 generation_config=genai.types.GenerationConfig(
-                    max_output_tokens=200,  # Increased significantly to prevent truncation
+                    max_output_tokens=250,
                     temperature=0.7
                 )
             )
             
-            # Get the full response text - handle different response formats
-            advice = ""
-            finish_reason = None
-            try:
-                # Check finish reason first to see why it stopped
-                if hasattr(response, 'candidates') and len(response.candidates) > 0:
-                    candidate = response.candidates[0]
-                    finish_reason = getattr(candidate, 'finish_reason', None)
-                    print(f"Finish reason: {finish_reason}")
-                    
-                    # Get text from candidates
-                    if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
-                        full_text = ""
-                        for part in candidate.content.parts:
-                            if hasattr(part, 'text'):
-                                full_text += part.text
-                        advice = full_text.strip()
-                    elif hasattr(candidate, 'text'):
-                        advice = candidate.text.strip()
-                
-                # Fallback to response.text
-                if not advice and hasattr(response, 'text'):
-                    advice = response.text.strip()
-                
-                # Last resort
-                if not advice:
-                    advice = str(response).strip()
-                    
-            except Exception as e:
-                print(f"Error extracting response text: {e}")
-                import traceback
-                print(traceback.format_exc())
+            # Extract advice text in a simple, robust way
+            if hasattr(response, 'text') and response.text:
+                advice = response.text.strip()
+            elif hasattr(response, 'candidates') and response.candidates:
+                # Fall back to first candidate text if needed
+                candidate = response.candidates[0]
+                text_parts = []
+                if getattr(candidate, "content", None) and getattr(candidate.content, "parts", None):
+                    for part in candidate.content.parts:
+                        if getattr(part, "text", None):
+                            text_parts.append(part.text)
+                advice = "".join(text_parts).strip() if text_parts else str(response).strip()
+            else:
                 advice = str(response).strip()
             
-            # Debug: log the response details
-            print(f"AI Advice response length: {len(advice)} characters, {len(advice.split())} words")
-            print(f"AI Advice full text: '{advice}'")
-            print(f"Finish reason: {finish_reason}")
-            
-            # Check if response is incomplete
-            if finish_reason == 'STOP' and (not advice or len(advice.split()) < 5):
-                print("Warning: Response stopped early, might be incomplete")
-            elif finish_reason == 'MAX_TOKENS':
-                print("Warning: Response hit max tokens limit")
-            
-            # Check if response seems incomplete (ends abruptly without punctuation or too short)
-            if advice and len(advice) > 0:
-                words = advice.split()
-                # If response doesn't end with punctuation or is too short, retry
-                if (not advice[-1] in '.!?') or len(words) < 5:
-                    print(f"Warning: Response seems incomplete ({len(words)} words, ends with '{advice[-1] if advice else 'N/A'}'), retrying...")
-                    try:
-                        # Try with a simpler, more explicit prompt
-                        simple_prompt = f"""Complete this sentence about monthly spending: "Spent ${monthly_total:.2f} this month, mostly on {top_category[0]} (${top_category[1]:.2f}). [Add a brief recommendation ending with punctuation]"
-
-Generate a complete sentence (8-12 words) that finishes the thought above."""
-                        response2 = self.text_model.generate_content(
-                            simple_prompt,
-                            generation_config=genai.types.GenerationConfig(
-                                max_output_tokens=150,
-                                temperature=0.7
-                            )
-                        )
-                        
-                        # Extract retry response
-                        advice2 = ""
-                        if hasattr(response2, 'candidates') and len(response2.candidates) > 0:
-                            candidate = response2.candidates[0]
-                            if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
-                                for part in candidate.content.parts:
-                                    if hasattr(part, 'text'):
-                                        advice2 += part.text
-                            elif hasattr(candidate, 'text'):
-                                advice2 = candidate.text
-                        elif hasattr(response2, 'text'):
-                            advice2 = response2.text
-                        else:
-                            advice2 = str(response2)
-                        
-                        advice2 = advice2.strip()
-                        words2 = advice2.split()
-                        
-                        # Use retry if it's better (longer and ends with punctuation)
-                        if len(words2) > len(words) and advice2[-1] in '.!?':
-                            advice = advice2
-                            print(f"Retry successful: {advice} ({len(words2)} words)")
-                        else:
-                            print(f"Retry didn't help: {advice2} ({len(words2)} words)")
-                    except Exception as e:
-                        print(f"Retry failed: {e}")
-                        import traceback
-                        print(traceback.format_exc())
-            
-            # Final validation: ensure response is complete
-            words = advice.split()
-            
-            # If response is incomplete (doesn't end with punctuation or too short), complete it
-            if advice and len(words) > 0:
-                if not advice[-1] in '.!?' or len(words) < 5:
-                    print(f"Completing incomplete response: '{advice}'")
-                    # Try to complete the sentence
-                    if advice.lower().endswith('on'):
-                        # Complete "Spent $X on" pattern
-                        advice = f"{advice} {top_category[0]} this month. Consider reducing {top_category[0]} expenses."
-                    elif 'spent' in advice.lower() and len(words) < 8:
-                        # Generic completion
-                        advice = f"{advice} ${monthly_total:.2f} this month. Focus on reducing {top_category[0]} spending."
-                    else:
-                        # Add a completion
-                        advice = f"{advice} Focus on reducing {top_category[0]} expenses this month."
-                    print(f"Completed response: '{advice}'")
-            
-            # Ensure reasonable length but preserve complete sentences
-            words = advice.split()
-            if len(words) > 15:
-                # Find a good stopping point at sentence end
-                truncated = ' '.join(words[:15])
-                # Try to end at punctuation
-                for punct in ['.', '!', '?']:
-                    if punct in truncated:
-                        last_punct = truncated.rfind(punct)
-                        advice = truncated[:last_punct + 1]
-                        break
-                else:
-                    # No punctuation found, just truncate but add ellipsis
-                    advice = truncated + '...'
-            
-            # Final check: ensure we have a valid response
-            if not advice or len(advice.strip()) == 0:
-                advice = f"Spent ${monthly_total:.2f} this month. Focus on {top_category[0]} spending."
-            
-            # Final validation: ensure it ends with punctuation
-            if advice and advice[-1] not in '.!?':
-                advice = advice.rstrip() + '.'
+            # Final sanity check
+            if not advice or len(advice) < 5:
+                advice = "Keep tracking your expenses regularly and set simple monthly budgets."
             
             return advice
         

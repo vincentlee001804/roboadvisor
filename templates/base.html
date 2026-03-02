@@ -16,6 +16,8 @@
         body {
             margin: 0;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
             background: var(--ra-bg);
             color: #0f172a;
@@ -209,7 +211,7 @@
     {% endwith %}
 
     <!-- Main Content -->
-    <main class="container mx-auto px-4 py-8">
+    <main class="container mx-auto px-4 py-8" style="flex: 1 0 auto;">
         {% block content %}{% endblock %}
     </main>
 
