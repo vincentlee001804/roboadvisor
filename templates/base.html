@@ -7,19 +7,162 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <style>
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        :root {
+            --ra-bg: radial-gradient(circle at top, #e0f2fe 0, #f9fafb 40%, #eef2ff 100%);
+            --ra-card-radius: 1.5rem;
+            --ra-card-shadow: 0 18px 45px rgba(15, 23, 42, 0.15);
         }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+            background: var(--ra-bg);
+            color: #0f172a;
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
+        }
+
+        .glass-nav {
+            backdrop-filter: blur(22px);
+            background: linear-gradient(120deg, rgba(15, 23, 42, 0.88), rgba(30, 64, 175, 0.9));
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.92);
+            border-radius: var(--ra-card-radius);
+            box-shadow: var(--ra-card-shadow);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(24px);
+        }
+
+        .soft-card {
+            background: rgba(255, 255, 255, 0.96);
+            border-radius: 1.25rem;
+            box-shadow: 0 14px 35px rgba(15, 23, 42, 0.08);
+        }
+
+        .primary-btn {
+            border-radius: 9999px;
+            padding-inline: 1.5rem;
+            padding-block: 0.75rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            box-shadow: 0 12px 25px rgba(79, 70, 229, 0.45);
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .primary-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 18px 40px rgba(79, 70, 229, 0.5);
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        }
+
+        .primary-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 10px 25px rgba(79, 70, 229, 0.45);
+        }
+
+        .secondary-btn {
+            border-radius: 9999px;
+            padding-inline: 1.25rem;
+            padding-block: 0.6rem;
+            font-weight: 500;
+            background: rgba(255, 255, 255, 0.9);
+            color: #4b5563;
+            border: 1px solid rgba(148, 163, 184, 0.5);
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.06);
+            transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+        }
+
+        .secondary-btn:hover {
+            background: white;
+            transform: translateY(-1px);
+            box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        .danger-btn {
+            border-radius: 9999px;
+            padding-inline: 1rem;
+            padding-block: 0.45rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: #f97373;
+            color: white;
+            box-shadow: 0 8px 18px rgba(248, 113, 113, 0.45);
+            transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+        }
+
+        .danger-btn:hover {
+            background: #ef4444;
+            transform: translateY(-1px);
+            box-shadow: 0 12px 26px rgba(248, 113, 113, 0.55);
+        }
+
+        .ghost-btn {
+            border-radius: 9999px;
+            padding-inline: 1rem;
+            padding-block: 0.45rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.9);
+            color: #1d4ed8;
+            border: 1px solid rgba(191, 219, 254, 0.9);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+            transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+        }
+
+        .ghost-btn:hover {
+            background: white;
+            transform: translateY(-1px);
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+        }
+
+        .icon-btn {
+            border-radius: 9999px;
+            width: 2.25rem;
+            height: 2.25rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            color: #64748b;
+            background: transparent;
+            font-size: 1rem;
+        }
+
+        .icon-btn:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+            transform: scale(1.05);
+        }
+
+        .icon-btn.danger:hover {
+            background: #fee2e2;
+            color: #ef4444;
+        }
+
+        .chip {
+            border-radius: 9999px;
+            padding-inline: 0.75rem;
+            padding-block: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
         /* Smooth scrolling for modals */
         .overflow-y-auto {
             scrollbar-width: thin;
-            scrollbar-color: #cbd5e0 #f7fafc;
+            scrollbar-color: #cbd5e0 #f7fafb;
         }
         .overflow-y-auto::-webkit-scrollbar {
             width: 8px;
         }
         .overflow-y-auto::-webkit-scrollbar-track {
-            background: #f7fafc;
+            background: #f7fafb;
             border-radius: 4px;
         }
         .overflow-y-auto::-webkit-scrollbar-thumb {
@@ -35,9 +178,9 @@
         }
     </style>
 </head>
-<body class="bg-gray-50">
+<body>
     <!-- Navigation -->
-    <nav class="gradient-bg text-white shadow-lg">
+    <nav class="glass-nav text-white shadow-lg">
         <div class="container mx-auto px-4 py-4">
             <div class="flex justify-between items-center">
                 <h1 class="text-2xl font-bold">💰 AI Robo-Advisor</h1>

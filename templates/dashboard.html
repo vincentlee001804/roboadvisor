@@ -10,15 +10,15 @@
 
 <!-- Stats Cards -->
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="glass-card p-6">
         <h3 class="text-gray-600 text-sm font-semibold mb-2">Total Expenses</h3>
         <p class="text-3xl font-bold text-gray-800">${{ "%.2f"|format(total_expenses) }}</p>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="glass-card p-6">
         <h3 class="text-gray-600 text-sm font-semibold mb-2">Recent Expenses</h3>
         <p class="text-3xl font-bold text-gray-800">{{ expenses|length }}</p>
     </div>
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="glass-card p-6">
         <h3 class="text-gray-600 text-sm font-semibold mb-2">Active Budgets</h3>
         <p class="text-3xl font-bold text-gray-800">{{ budgets|length }}</p>
     </div>
@@ -56,10 +56,10 @@
 {% endif %}
 
 <!-- Recent Expenses -->
-<div class="bg-white rounded-lg shadow p-6 mb-8">
+<div class="soft-card p-6 mb-8">
     <div class="flex justify-between items-center mb-4">
         <h3 class="text-xl font-bold text-gray-800">Recent Expenses</h3>
-        <a href="{{ url_for('upload_receipt') }}" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+        <a href="{{ url_for('upload_receipt') }}" class="primary-btn text-sm">
             + Add Expense
         </a>
     </div>
@@ -87,7 +87,7 @@
                     </td>
                     <td class="py-2 px-4">{{ expense.merchant }}</td>
                     <td class="py-2 px-4">
-                        <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-sm">
+                        <span class="chip bg-indigo-100 text-indigo-700">
                             {{ expense.category }}
                         </span>
                     </td>
@@ -104,7 +104,7 @@
 
 <!-- Budget Overview -->
 {% if budgets %}
-<div class="bg-white rounded-lg shadow p-6">
+<div class="soft-card p-6">
     <h3 class="text-xl font-bold text-gray-800 mb-4">Budget Status</h3>
     <div class="space-y-4">
         {% for budget in budgets %}

@@ -7,7 +7,7 @@
     <h2 class="text-3xl font-bold text-gray-800 mb-8">🤖 AI Financial Advice</h2>
     
     {% if advice %}
-    <div class="bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg shadow-lg p-8 mb-8 text-white">
+    <div class="glass-card p-8 mb-8 text-gray-900 bg-gradient-to-r from-purple-500/90 to-pink-500/90 text-white">
         <h3 class="text-2xl font-bold mb-4">Your Personalized Advice</h3>
         <p class="text-lg leading-relaxed">{{ advice }}</p>
     </div>
@@ -18,7 +18,7 @@
     {% endif %}
     
     <!-- BNPL Checker -->
-    <div class="bg-white rounded-lg shadow p-6 mb-8">
+    <div class="soft-card p-6 mb-8">
         <h3 class="text-xl font-bold text-gray-800 mb-4">⚠️ BNPL Offer Checker</h3>
         <p class="text-gray-600 mb-4">Paste a BNPL offer to analyze hidden costs and risks</p>
         <form id="bnplForm" class="space-y-4">
@@ -43,7 +43,7 @@
                        class="w-full border border-gray-300 rounded-lg px-4 py-2">
             </div>
             <button type="submit" 
-                    class="w-full bg-red-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-red-700 transition">
+                    class="w-full primary-btn bg-red-600 hover:bg-red-700 text-white justify-center flex items-center">
                 Analyze BNPL Offer
             </button>
         </form>
