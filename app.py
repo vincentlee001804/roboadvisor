@@ -94,13 +94,16 @@ def index():
             recent_advice = cached_advice
         else:
             # Expenses have changed or no cache exists - generate new advice
-            # Create expense objects compatible with AI service
+            # Create expense objects compatible with AI service with full details
             expense_objects = []
             for exp in expenses:
                 class ExpenseObj:
                     def __init__(self, data):
                         self.category = data.get('category', 'Other')
                         self.amount = data.get('amount', 0)
+                        self.merchant = data.get('merchant', 'Unknown')
+                        self.description = data.get('description', '')
+                        self.date = data.get('date', None)
                 expense_objects.append(ExpenseObj(exp))
             
             budget_objects = []
@@ -435,11 +438,14 @@ def advice():
     expenses = firebase.get_expenses(user['id'])
     budgets = firebase.get_budgets(user['id'])
     
-    # Convert to objects compatible with AI service
+    # Convert to objects compatible with AI service with full details
     class ExpenseObj:
         def __init__(self, data):
             self.category = data.get('category', 'Other')
             self.amount = data.get('amount', 0)
+            self.merchant = data.get('merchant', 'Unknown')
+            self.description = data.get('description', '')
+            self.date = data.get('date', None)
     
     class BudgetObj:
         def __init__(self, data, user_id):
@@ -456,17 +462,122 @@ def advice():
     
     return render_template('advice.html', advice=advice, expenses=expenses, budgets=budgets)
 
+@app.route('/regenerate-advice', methods=['POST'])
+def regenerate_advice():
+    """Debug endpoint to force regenerate advice"""
+    if not firebase:
+        return jsonify({'error': 'Firebase not configured'}), 500
+    
+    try:
+        user = firebase.get_first_user()
+        if not user:
+            return jsonify({'error': 'User not found'}), 400
+        
+        # Clear cached advice
+        firebase.cache_advice(user['id'], None, None)
+        
+        # Get expenses and budgets
+        expenses = firebase.get_expenses(user['id'], limit=10)
+        budgets = firebase.get_budgets(user['id'])
+        
+        # Create expense objects
+        expense_objects = []
+        for exp in expenses:
+            class ExpenseObj:
+                def __init__(self, data):
+                    self.category = data.get('category', 'Other')
+                    self.amount = data.get('amount', 0)
+                    self.merchant = data.get('merchant', 'Unknown')
+                    self.description = data.get('description', '')
+                    self.date = data.get('date', None)
+            expense_objects.append(ExpenseObj(exp))
+        
+        budget_objects = []
+        for budget in budgets:
+            class BudgetObj:
+                def __init__(self, data, user_id):
+                    self.category = data.get('category', 'Other')
+                    self.amount = data.get('amount', 0)
+                    self.user_id = user_id
+                def get_spent(self, user_id):
+                    return firebase.get_budget_spent(user_id, self.category)
+            budget_objects.append(BudgetObj(budget, user['id']))
+        
+        # Generate new advice
+        advice = ai_service.get_financial_advice(user['id'], expense_objects, budget_objects)
+        
+        # Cache it
+        current_expense_count = firebase.get_expense_count(user['id'])
+        firebase.cache_advice(user['id'], advice, current_expense_count)
+        
+        return jsonify({'success': True, 'advice': advice})
+    except Exception as e:
+        import traceback
+        print(f"Error regenerating advice: {e}")
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/clear-advice-cache', methods=['POST'])
+def clear_advice_cache():
+    """Debug endpoint to clear advice cache"""
+    if not firebase:
+        return jsonify({'error': 'Firebase not configured'}), 500
+    
+    try:
+        user = firebase.get_first_user()
+        if not user:
+            return jsonify({'error': 'User not found'}), 400
+        
+        # Clear cached advice
+        firebase.cache_advice(user['id'], None, None)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/bnpl-check', methods=['POST'])
 def bnpl_check():
     """Check BNPL offer and provide warning"""
-    data = request.get_json()
-    bnpl_offer = data.get('offer', {})
-    
     try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'error': 'No data received',
+                'risk_level': 'High',
+                'warning_message': 'Unable to analyze offer. No data provided.',
+                'total_cost': None,
+                'apr': None,
+                'recommendation': 'Please check your input and try again.'
+            }), 400
+        
+        bnpl_offer = data.get('offer', {})
+        if not bnpl_offer:
+            return jsonify({
+                'error': 'No offer data found',
+                'risk_level': 'High',
+                'warning_message': 'Unable to analyze offer. Offer details missing.',
+                'total_cost': None,
+                'apr': None,
+                'recommendation': 'Please fill in all required fields.'
+            }), 400
+        
+        # Debug: print received data
+        print(f"Received BNPL offer: {bnpl_offer}")
+        
         analysis = ai_service.analyze_bnpl_offer(bnpl_offer)
         return jsonify(analysis)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        print(f"Error in bnpl_check: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({
+            'error': str(e),
+            'risk_level': 'High',
+            'warning_message': f'Unable to analyze offer: {str(e)}',
+            'total_cost': None,
+            'apr': None,
+            'recommendation': 'Please check your input and try again.'
+        }), 500
 
 @app.route('/setup', methods=['GET', 'POST'])
 def setup():

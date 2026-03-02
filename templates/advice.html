@@ -72,6 +72,10 @@ document.getElementById('bnplForm').addEventListener('submit', async (e) => {
             body: JSON.stringify({ offer })
         });
         
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+        
         const result = await response.json();
         const resultDiv = document.getElementById('bnplResult');
         resultDiv.classList.remove('hidden');
@@ -82,26 +86,43 @@ document.getElementById('bnplForm').addEventListener('submit', async (e) => {
             'High': 'red'
         };
         
+        const riskColor = riskColors[result.risk_level] || 'gray';
+        const totalCost = result.total_cost !== null && result.total_cost !== undefined 
+            ? `$${result.total_cost.toFixed(2)}` 
+            : 'N/A';
+        const apr = result.apr !== null && result.apr !== undefined 
+            ? `${result.apr.toFixed(2)}%` 
+            : 'N/A';
+        
         resultDiv.innerHTML = `
-            <div class="bg-${riskColors[result.risk_level] || 'gray'}-50 border border-${riskColors[result.risk_level] || 'gray'}-300 rounded-lg p-6">
+            <div class="bg-${riskColor}-50 border border-${riskColor}-300 rounded-lg p-6">
                 <h4 class="font-bold text-lg mb-4">Analysis Results</h4>
                 <div class="space-y-2 mb-4">
-                    <p><strong>Total Cost:</strong> $${result.total_cost?.toFixed(2) || 'N/A'}</p>
-                    <p><strong>Effective APR:</strong> ${result.apr?.toFixed(2) || 'N/A'}%</p>
-                    <p><strong>Risk Level:</strong> <span class="font-bold text-${riskColors[result.risk_level] || 'gray'}-700">${result.risk_level}</span></p>
+                    <p><strong>Total Cost:</strong> ${totalCost}</p>
+                    <p><strong>Effective APR:</strong> ${apr}</p>
+                    <p><strong>Risk Level:</strong> <span class="font-bold text-${riskColor}-700">${result.risk_level || 'High'}</span></p>
                 </div>
                 <div class="bg-white rounded p-4 mb-4">
                     <p class="font-semibold mb-2">⚠️ Warning:</p>
-                    <p>${result.warning_message || 'Unable to analyze'}</p>
+                    <p>${result.warning_message || result.error || 'Unable to analyze offer. Please check your input.'}</p>
                 </div>
                 <div class="bg-blue-50 rounded p-4">
                     <p class="font-semibold mb-2">💡 Recommendation:</p>
                     <p>${result.recommendation || 'Please review carefully before proceeding.'}</p>
                 </div>
+                ${result.error ? `<div class="mt-4 text-sm text-red-600">Error: ${result.error}</div>` : ''}
             </div>
         `;
     } catch (error) {
-        alert('Error analyzing offer: ' + error.message);
+        const resultDiv = document.getElementById('bnplResult');
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = `
+            <div class="bg-red-50 border border-red-300 rounded-lg p-6">
+                <h4 class="font-bold text-lg mb-4 text-red-800">Error</h4>
+                <p class="text-red-700">Failed to analyze offer: ${error.message}</p>
+                <p class="text-sm text-red-600 mt-2">Please check your input values and try again.</p>
+            </div>
+        `;
     }
 });
 </script>
