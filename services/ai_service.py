@@ -233,7 +233,8 @@ Do not include any markdown formatting, just the raw JSON."""
                     'amount': exp['amount']
                 })
             
-            # Build a concise, single-call prompt for Gemini using expense details
+            # Build a concise, single-call prompt for Gemini using expense details.
+            # We now ask for plain text advice only (no JSON) to avoid partial JSON issues.
             prompt = f"""You are a friendly financial advisor for students.
 Analyze the student's recent spending and give short, practical advice.
 
@@ -246,41 +247,33 @@ Spending by category (this month):
 Optional budget summary (if any budgets exist):
 {json.dumps(budget_summary, indent=2)}
 
-Please provide 2–3 short sentences of advice:
-- Mention any categories where spending is high or risky
-- Give 1–2 concrete, student-friendly tips to improve their finances
-- Keep the tone encouraging, not scolding.
+Write 2–3 short sentences of personalized advice, and output ONLY those sentences.
+Do NOT include JSON, keys, quotes, bullet points, or any extra labels.
+Just return the advice text itself.
 """
             
-            # Single Gemini call for advice
+            # Single Gemini call for advice (let the model decide output length)
             response = self.text_model.generate_content(
                 prompt,
                 generation_config=genai.types.GenerationConfig(
-                    max_output_tokens=250,
                     temperature=0.7
                 )
             )
             
             # Extract advice text in a simple, robust way
-            if hasattr(response, 'text') and response.text:
-                advice = response.text.strip()
-            elif hasattr(response, 'candidates') and response.candidates:
-                # Fall back to first candidate text if needed
-                candidate = response.candidates[0]
-                text_parts = []
-                if getattr(candidate, "content", None) and getattr(candidate.content, "parts", None):
-                    for part in candidate.content.parts:
-                        if getattr(part, "text", None):
-                            text_parts.append(part.text)
-                advice = "".join(text_parts).strip() if text_parts else str(response).strip()
-            else:
-                advice = str(response).strip()
+            content = getattr(response, "text", "") or str(response)
+            # Debug: print raw Gemini response to server console for inspection
+            print("\n===== Gemini RAW advice response =====")
+            print(content)
+            print("===== END raw advice response =====\n")
             
-            # Final sanity check
-            if not advice or len(advice) < 5:
-                advice = "Keep tracking your expenses regularly and set simple monthly budgets."
+            advice_text = content.strip()
             
-            return advice
+            # Final sanity check – if still empty or too short, fall back to a safe message
+            if not advice_text or len(advice_text) < 5:
+                advice_text = "Keep tracking your expenses regularly and set simple monthly budgets."
+            
+            return advice_text
         
         except Exception as e:
             return f"Unable to generate advice at this time. Error: {str(e)}"
