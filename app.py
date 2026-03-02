@@ -483,41 +483,9 @@ def budget():
 
 @app.route('/advice')
 def advice():
-    """Get AI financial advice"""
-    if not firebase:
-        flash('Firebase not configured. Please set up Firebase.', 'error')
-        return redirect(url_for('setup'))
-    
-    user = firebase.get_first_user()
-    if not user:
-        return redirect(url_for('setup'))
-    
-    expenses = firebase.get_expenses(user['id'])
-    budgets = firebase.get_budgets(user['id'])
-    
-    # Convert to objects compatible with AI service with full details
-    class ExpenseObj:
-        def __init__(self, data):
-            self.category = data.get('category', 'Other')
-            self.amount = data.get('amount', 0)
-            self.merchant = data.get('merchant', 'Unknown')
-            self.description = data.get('description', '')
-            self.date = data.get('date', None)
-    
-    class BudgetObj:
-        def __init__(self, data, user_id):
-            self.category = data.get('category', 'Other')
-            self.amount = data.get('amount', 0)
-            self.user_id = user_id
-        def get_spent(self, user_id):
-            return firebase.get_budget_spent(user_id, self.category)
-    
-    expense_objects = [ExpenseObj(exp) for exp in expenses]
-    budget_objects = [BudgetObj(budget, user['id']) for budget in budgets]
-    
-    advice = ai_service.get_financial_advice(user['id'], expense_objects, budget_objects)
-    
-    return render_template('advice.html', advice=advice, expenses=expenses, budgets=budgets)
+    """BNPL checker page (no AI spending advice)"""
+    # We no longer generate Gemini advice here; just render the BNPL checker UI.
+    return render_template('advice.html')
 
 @app.route('/regenerate-advice', methods=['POST'])
 def regenerate_advice():
