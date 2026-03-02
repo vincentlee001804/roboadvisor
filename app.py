@@ -233,6 +233,63 @@ def expenses():
     
     return render_template('expenses.html', expenses=expenses)
 
+@app.route('/add-expense', methods=['GET', 'POST'])
+def add_expense():
+    """Manually add an expense (for cases with no receipt)"""
+    if not firebase:
+        flash('Firebase not configured. Please set up Firebase.', 'error')
+        return redirect(url_for('setup'))
+    
+    user = firebase.get_first_user()
+    if not user:
+        return redirect(url_for('setup'))
+    
+    if request.method == 'POST':
+        merchant = request.form.get('merchant', '').strip()
+        amount_raw = request.form.get('amount', '0').strip()
+        category = request.form.get('category', 'Other')
+        date_str = request.form.get('date', '').strip()
+        description = request.form.get('description', '').strip()
+        
+        # Basic validation
+        try:
+            amount = float(amount_raw)
+        except ValueError:
+            flash('Please enter a valid amount.', 'error')
+            return redirect(url_for('add_expense'))
+        
+        if not merchant:
+            flash('Please enter a merchant name.', 'error')
+            return redirect(url_for('add_expense'))
+        
+        # Parse date (default to today)
+        try:
+            expense_date = datetime.strptime(date_str, '%Y-%m-%d') if date_str else datetime.now()
+        except Exception:
+            expense_date = datetime.now()
+        
+        # Create expense in Firebase
+        try:
+            firebase.create_expense(
+                user_id=user['id'],
+                merchant=merchant,
+                amount=amount,
+                category=category,
+                date=expense_date,
+                description=description,
+                receipt_image=None,
+                items=None
+            )
+            flash('Expense added successfully.', 'success')
+            return redirect(url_for('expenses'))
+        except Exception as e:
+            flash(f'Error adding expense: {str(e)}', 'error')
+            return redirect(url_for('add_expense'))
+    
+    # GET: show form with default date = today
+    today = datetime.now().strftime('%Y-%m-%d')
+    return render_template('add_expense.html', today=today)
+
 @app.route('/expenses/save', methods=['POST'])
 def save_expense():
     """Save expense after user edits (from OCR modal)"""

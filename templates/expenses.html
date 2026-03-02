@@ -6,9 +6,14 @@
 <div class="mb-8">
     <div class="flex justify-between items-center">
         <h2 class="text-3xl font-bold text-gray-800">All Expenses</h2>
-        <a href="{{ url_for('upload_receipt') }}" class="primary-btn text-sm">
-            + Add Expense
-        </a>
+        <div class="space-x-2">
+            <a href="{{ url_for('add_expense') }}" class="primary-btn text-sm">
+                + Add Manually
+            </a>
+            <a href="{{ url_for('upload_receipt') }}" class="secondary-btn text-sm inline-flex items-center">
+                📸 Upload Receipt
+            </a>
+        </div>
     </div>
 </div>
 

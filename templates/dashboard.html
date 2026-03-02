@@ -59,9 +59,14 @@
 <div class="soft-card p-6 mb-8">
     <div class="flex justify-between items-center mb-4">
         <h3 class="text-xl font-bold text-gray-800">Recent Expenses</h3>
-        <a href="{{ url_for('upload_receipt') }}" class="primary-btn text-sm">
-            + Add Expense
-        </a>
+        <div class="space-x-2">
+            <a href="{{ url_for('add_expense') }}" class="primary-btn text-sm">
+                + Add Manually
+            </a>
+            <a href="{{ url_for('upload_receipt') }}" class="secondary-btn text-sm inline-flex items-center">
+                📸 Upload
+            </a>
+        </div>
     </div>
     
     {% if expenses %}
