@@ -13,18 +13,39 @@ class FirebaseService:
     
     def __init__(self):
         # Initialize Firebase Admin SDK
-        service_account_path = os.environ.get('FIREBASE_SERVICE_ACCOUNT_PATH', 'firebase-service-account.json')
-        
-        if not os.path.exists(service_account_path):
-            raise FileNotFoundError(f"Firebase service account file not found: {service_account_path}")
-        
-        # Read project ID from service account JSON
         import json as json_lib
-        with open(service_account_path, 'r') as f:
-            service_account_data = json_lib.load(f)
-            project_id = service_account_data.get('project_id')
         
-        cred = credentials.Certificate(service_account_path)
+        # Option A: Try reading from environment variable first (for deployment)
+        service_account_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT')
+        
+        if service_account_json:
+            # Parse JSON from environment variable
+            try:
+                service_account_data = json_lib.loads(service_account_json)
+                project_id = service_account_data.get('project_id')
+                # Create credentials from dict
+                cred = credentials.Certificate(service_account_data)
+                print("Firebase initialized from FIREBASE_SERVICE_ACCOUNT environment variable")
+            except json_lib.JSONDecodeError as e:
+                raise ValueError(f"Invalid JSON in FIREBASE_SERVICE_ACCOUNT environment variable: {e}")
+        else:
+            # Option B: Fall back to file (for local development)
+            service_account_path = os.environ.get('FIREBASE_SERVICE_ACCOUNT_PATH', 'firebase-service-account.json')
+            
+            if not os.path.exists(service_account_path):
+                raise FileNotFoundError(
+                    f"Firebase service account not found. "
+                    f"Either set FIREBASE_SERVICE_ACCOUNT environment variable (JSON string) "
+                    f"or provide file at: {service_account_path}"
+                )
+            
+            # Read project ID from service account JSON file
+            with open(service_account_path, 'r') as f:
+                service_account_data = json_lib.load(f)
+                project_id = service_account_data.get('project_id')
+            
+            cred = credentials.Certificate(service_account_path)
+            print(f"Firebase initialized from file: {service_account_path}")
         
         # Initialize only if not already initialized
         if not firebase_admin._apps:

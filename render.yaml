@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: roboadvisor
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3-flash-preview
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FIREBASE_SERVICE_ACCOUNT_PATH
+        value: firebase-service-account.json
+      # Note: You'll need to add FIREBASE_SERVICE_ACCOUNT as environment variable manually
+      # in Render dashboard with the JSON content from firebase-service-account.json
