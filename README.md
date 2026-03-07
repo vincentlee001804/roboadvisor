@@ -2,6 +2,12 @@
 
 A personalized financial management tool designed for students, featuring automated expense tracking via receipt photos and AI-driven financial advice.
 
+## 🌐 Live Demo
+
+**Live Application:** [https://roboadvisor-bjfs.onrender.com](https://roboadvisor-bjfs.onrender.com)
+
+The application is currently deployed on Render and accessible via the link above.
+
 ## Features
 
 - 📸 **Frictionless Expense Tracking**: Upload receipt photos or e-wallet screenshots
