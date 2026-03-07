@@ -265,6 +265,51 @@ class FirebaseService:
         expenses = self.db.collection('expenses').where('user_id', '==', user_id).where('category', '==', category).stream()
         return sum(doc.to_dict().get('amount', 0) for doc in expenses)
     
+    def set_total_budget(self, user_id, amount):
+        """Set or update total monthly budget for a user"""
+        # Store total budget with category='_total' to distinguish from category budgets
+        budget_data = {
+            'user_id': user_id,
+            'category': '_total',
+            'amount': float(amount),
+            'updated_at': firestore.SERVER_TIMESTAMP
+        }
+        
+        # Check if total budget exists
+        budgets = self.db.collection('budgets').where('user_id', '==', user_id).where('category', '==', '_total').limit(1).stream()
+        
+        budget_id = None
+        for doc in budgets:
+            budget_id = doc.id
+            break
+        
+        if budget_id:
+            # Update existing
+            self.db.collection('budgets').document(budget_id).update(budget_data)
+            return budget_id
+        else:
+            # Create new
+            budget_data['created_at'] = firestore.SERVER_TIMESTAMP
+            budget_ref = self.db.collection('budgets').document()
+            budget_ref.set(budget_data)
+            return budget_ref.id
+    
+    def get_total_budget(self, user_id):
+        """Get total monthly budget for a user"""
+        budgets = self.db.collection('budgets').where('user_id', '==', user_id).where('category', '==', '_total').limit(1).stream()
+        for doc in budgets:
+            return doc.to_dict().get('amount', 0)
+        return 0
+    
+    def get_category_budgets(self, user_id):
+        """Get only category-specific budgets (exclude total budget)"""
+        budgets = []
+        for doc in self.db.collection('budgets').where('user_id', '==', user_id).stream():
+            budget_data = doc.to_dict()
+            if budget_data.get('category') != '_total':
+                budgets.append({'id': doc.id, **budget_data})
+        return budgets
+    
     # Storage Operations
     def upload_file(self, local_file_path, destination_path):
         """Upload a file to Firebase Storage"""

@@ -133,7 +133,7 @@ Do not include any markdown formatting, just the raw JSON."""
                 'description': 'Failed to extract receipt data'
             }
     
-    def get_financial_advice(self, user_id, expenses, budgets):
+    def get_financial_advice(self, user_id, expenses, budgets, total_budget=0):
         """
         Generate personalized financial advice based on spending patterns
         """
@@ -165,7 +165,21 @@ Do not include any markdown formatting, just the raw JSON."""
             
             # Prepare budget summary
             budget_summary = {}
+            
+            # Add total budget if available
+            if total_budget and total_budget > 0:
+                budget_summary['_total'] = {
+                    'allocated': total_budget,
+                    'spent': total_spent,
+                    'remaining': total_budget - total_spent,
+                    'percentage': (total_spent / total_budget * 100) if total_budget > 0 else 0
+                }
+            
+            # Add category budgets
             for budget in budgets:
+                # Skip total budget entry if it exists
+                if hasattr(budget, 'category') and budget.category == '_total':
+                    continue
                 spent = budget.get_spent(user_id)
                 remaining = budget.get_remaining(user_id)
                 budget_summary[budget.category] = {
@@ -235,6 +249,12 @@ Do not include any markdown formatting, just the raw JSON."""
             
             # Build a concise, single-call prompt for Gemini using expense details.
             # We now ask for plain text advice only (no JSON) to avoid partial JSON issues.
+            budget_context = ""
+            if total_budget and total_budget > 0:
+                total_remaining = total_budget - monthly_total
+                budget_percentage = (monthly_total / total_budget * 100) if total_budget > 0 else 0
+                budget_context = f"\nTotal Monthly Budget: ${total_budget:.2f}\nTotal Spent This Month: ${monthly_total:.2f} ({budget_percentage:.1f}% of budget)\nRemaining: ${total_remaining:.2f}\n"
+            
             prompt = f"""You are a friendly financial advisor for students.
 Analyze the student's recent spending and give short, practical advice.
 
@@ -243,13 +263,14 @@ Recent expenses (JSON list of items with merchant, category, amount, description
 
 Spending by category (this month):
 {json.dumps(monthly_summary, indent=2)}
-
-Optional budget summary (if any budgets exist):
-{json.dumps(budget_summary, indent=2)}
+{budget_context}
+Optional category budget summary (if any category budgets exist):
+{json.dumps({k: v for k, v in budget_summary.items() if k != '_total'}, indent=2)}
 
 Write 2–3 short sentences of personalized advice, and output ONLY those sentences.
 Do NOT include JSON, keys, quotes, bullet points, or any extra labels.
 Just return the advice text itself.
+If a total budget is set, reference it in your advice (e.g., "You've spent X% of your monthly budget").
 """
             
             # Single Gemini call for advice (let the model decide output length)
@@ -320,7 +341,7 @@ Just return the advice text itself.
         
         return " ".join(recommendations) if recommendations else "Consider saving up instead of using BNPL to avoid interest and fees."
     
-    def analyze_bnpl_offer(self, bnpl_offer):
+    def analyze_bnpl_offer(self, bnpl_offer, total_budget=0):
         """
         Analyze a BNPL offer and provide warnings about hidden costs
         """
@@ -357,6 +378,12 @@ Just return the advice text itself.
             extra_cost = total_cost - purchase_amount
             extra_cost_percentage = (extra_cost / purchase_amount * 100) if purchase_amount > 0 else 0
             
+            # Build budget context
+            budget_context = ""
+            if total_budget and total_budget > 0:
+                monthly_payment_percentage = (monthly_payment / total_budget * 100) if total_budget > 0 else 0
+                budget_context = f"\nStudent's Monthly Budget: ${total_budget:.2f}\nMonthly Payment Impact: ${monthly_payment:.2f} ({monthly_payment_percentage:.1f}% of monthly budget)\n"
+            
             # Create detailed prompt for AI analysis
             prompt = f"""Analyze this Buy Now Pay Later (BNPL) offer for a student:
 
@@ -370,11 +397,11 @@ Calculated Values:
 - Monthly Payment: ${monthly_payment:.2f}
 - Effective APR: {apr:.2f}%
 - Risk Level: {risk_level}
-
+{budget_context}
 Context for a student:
-- Typical student monthly budget: $500-1000
+- {'This student has a monthly budget of $' + str(total_budget) + '. ' if total_budget and total_budget > 0 else 'Typical student monthly budget: $500-1000. '}
 - This purchase is ${purchase_amount:.2f}, which is {'a significant' if purchase_amount > 500 else 'a moderate' if purchase_amount > 200 else 'a small'} expense
-- Monthly payment of ${monthly_payment:.2f} represents {'a large' if monthly_payment > 200 else 'a moderate' if monthly_payment > 100 else 'a small'} portion of typical student income
+- Monthly payment of ${monthly_payment:.2f} represents {'a large' if monthly_payment > 200 else 'a moderate' if monthly_payment > 100 else 'a small'} portion of {'their monthly budget' if total_budget and total_budget > 0 else 'typical student income'}
 
 Provide SPECIFIC and ACTIONABLE advice:
 

@@ -66,8 +66,9 @@ def index():
         elif hasattr(exp.get('date'), 'timestamp'):
             exp['date'] = datetime.fromtimestamp(exp['date'].timestamp())
     
-    # Get budgets
-    budgets = firebase.get_budgets(user['id'])
+    # Get total budget and category budgets
+    total_budget = firebase.get_total_budget(user['id'])
+    budgets = firebase.get_category_budgets(user['id'])
     
     # Add calculated fields to budgets for template
     for budget in budgets:
@@ -115,19 +116,34 @@ def index():
                         self.user_id = user_id
                     def get_spent(self, user_id):
                         return firebase.get_budget_spent(user_id, self.category)
+                    def get_remaining(self, user_id):
+                        spent = firebase.get_budget_spent(user_id, self.category)
+                        return self.amount - spent
                 budget_objects.append(BudgetObj(budget, user['id']))
             
-            recent_advice = ai_service.get_financial_advice(user['id'], expense_objects, budget_objects)
+            recent_advice = ai_service.get_financial_advice(user['id'], expense_objects, budget_objects, total_budget)
             
             # Cache the new advice
             if recent_advice:
                 firebase.cache_advice(user['id'], recent_advice, current_expense_count)
     
+    # Calculate budget metrics for dashboard display
+    total_spent = total_expenses  # Already calculated above
+    total_remaining = 0
+    total_percentage = 0
+    if total_budget and total_budget > 0:
+        total_remaining = total_budget - total_spent
+        total_percentage = (total_spent / total_budget * 100) if total_budget > 0 else 0
+    
     return render_template('dashboard.html', 
                          user=user, 
                          expenses=expenses, 
                          budgets=budgets,
+                         total_budget=total_budget,
                          total_expenses=total_expenses,
+                         total_spent=total_spent,
+                         total_remaining=total_remaining,
+                         total_percentage=total_percentage,
                          advice=recent_advice)
 
 @app.route('/upload', methods=['GET', 'POST'])
@@ -461,25 +477,42 @@ def budget():
         return redirect(url_for('setup'))
     
     if request.method == 'POST':
-        category = request.form.get('category')
+        budget_type = request.form.get('budget_type', 'category')
         amount = float(request.form.get('amount', 0))
         
-        # Update or create budget in Firestore
-        firebase.create_or_update_budget(user['id'], category, amount)
+        if budget_type == 'total':
+            # Set total budget
+            firebase.set_total_budget(user['id'], amount)
+            flash('Total budget updated successfully!', 'success')
+        else:
+            # Set category budget
+            category = request.form.get('category')
+            if category:
+                firebase.create_or_update_budget(user['id'], category, amount)
+                flash('Category budget updated successfully!', 'success')
+            else:
+                flash('Please select a category.', 'error')
         
-        flash('Budget updated successfully!', 'success')
         return redirect(url_for('budget'))
     
-    budgets = firebase.get_budgets(user['id'])
+    # Get total budget
+    total_budget = firebase.get_total_budget(user['id'])
     
-    # Add calculated fields to budgets for template compatibility
-    for budget in budgets:
+    # Get category budgets only (exclude total budget)
+    category_budgets = firebase.get_category_budgets(user['id'])
+    
+    # Add calculated fields to category budgets for template compatibility
+    for budget in category_budgets:
         spent = firebase.get_budget_spent(user['id'], budget['category'])
         budget['spent'] = spent
         budget['remaining'] = budget['amount'] - spent
         budget['percentage'] = (spent / budget['amount'] * 100) if budget['amount'] > 0 else 0
     
-    return render_template('budget.html', budgets=budgets, user=user, firebase=firebase)
+    return render_template('budget.html', 
+                         total_budget=total_budget,
+                         category_budgets=category_budgets, 
+                         user=user, 
+                         firebase=firebase)
 
 @app.route('/advice')
 def advice():
@@ -503,7 +536,8 @@ def regenerate_advice():
         
         # Get expenses and budgets
         expenses = firebase.get_expenses(user['id'], limit=10)
-        budgets = firebase.get_budgets(user['id'])
+        total_budget = firebase.get_total_budget(user['id'])
+        budgets = firebase.get_category_budgets(user['id'])
         
         # Create expense objects
         expense_objects = []
@@ -526,10 +560,13 @@ def regenerate_advice():
                     self.user_id = user_id
                 def get_spent(self, user_id):
                     return firebase.get_budget_spent(user_id, self.category)
+                def get_remaining(self, user_id):
+                    spent = firebase.get_budget_spent(user_id, self.category)
+                    return self.amount - spent
             budget_objects.append(BudgetObj(budget, user['id']))
         
         # Generate new advice
-        advice = ai_service.get_financial_advice(user['id'], expense_objects, budget_objects)
+        advice = ai_service.get_financial_advice(user['id'], expense_objects, budget_objects, total_budget)
         
         # Cache it
         current_expense_count = firebase.get_expense_count(user['id'])
@@ -589,7 +626,13 @@ def bnpl_check():
         # Debug: print received data
         print(f"Received BNPL offer: {bnpl_offer}")
         
-        analysis = ai_service.analyze_bnpl_offer(bnpl_offer)
+        # Get user's total budget for context
+        user = firebase.get_first_user()
+        total_budget = 0
+        if user:
+            total_budget = firebase.get_total_budget(user['id'])
+        
+        analysis = ai_service.analyze_bnpl_offer(bnpl_offer, total_budget)
         return jsonify(analysis)
     except Exception as e:
         import traceback
