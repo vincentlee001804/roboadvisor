@@ -82,7 +82,7 @@
     <!-- Mobile Card View -->
     <div class="md:hidden p-4 space-y-3">
         {% for expense in expenses %}
-        <div class="expense-card bg-white rounded-lg p-4 shadow-sm border border-gray-100" onclick="viewExpense('{{ expense.id }}')">
+        <div class="expense-card bg-white p-4 shadow-sm border border-gray-100" onclick="viewExpense('{{ expense.id }}')" style="border-radius: 1rem;">
             <div class="flex justify-between items-start mb-2">
                 <div class="flex-1">
                     <h4 class="font-semibold text-gray-800 text-lg">{{ expense.merchant }}</h4>
@@ -120,7 +120,7 @@
             </div>
         </div>
         {% endfor %}
-        <div class="bg-gray-50 rounded-lg p-4 mt-4">
+        <div class="bg-gray-50 p-4 mt-4" style="border-radius: 0.75rem;">
             <div class="flex justify-between items-center">
                 <span class="font-bold text-gray-700">Total:</span>
                 <span class="font-bold text-xl text-gray-800">
@@ -141,7 +141,7 @@
 
 <!-- Expense Detail/Edit Modal -->
 <div id="expenseModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
-    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full flex flex-col" style="max-height: 95vh;">
+    <div class="bg-white shadow-xl max-w-2xl w-full flex flex-col" style="max-height: 95vh; border-radius: 1.5rem;">
         <!-- Sticky Header -->
         <div class="flex justify-between items-center p-4 md:p-6 border-b border-gray-200 flex-shrink-0">
             <h3 class="text-xl md:text-2xl font-bold text-gray-800">Expense Details</h3>
