@@ -352,6 +352,79 @@
         <p>&copy; 2026 AI Robo-Advisor for Students | BorNEO HackWknd</p>
     </footer>
 
+    <!-- Demo Welcome Modal -->
+    <div id="demoModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white shadow-xl max-w-md w-full flex flex-col" style="border-radius: 1.5rem; max-height: 90vh;">
+            <!-- Header -->
+            <div class="flex justify-between items-center p-6 border-b border-gray-200 flex-shrink-0">
+                <h3 class="text-xl md:text-2xl font-bold text-gray-800">👋 Welcome!</h3>
+                <button onclick="closeDemoModal()" class="text-gray-500 hover:text-gray-700 text-2xl font-bold w-10 h-10 md:w-8 md:h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition">
+                    &times;
+                </button>
+            </div>
+            
+            <!-- Content -->
+            <div class="overflow-y-auto flex-1 p-6">
+                <div class="text-center mb-6">
+                    <div class="text-6xl mb-4">🎓</div>
+                    <h4 class="text-lg md:text-xl font-bold text-gray-800 mb-3">Demo Version</h4>
+                    <p class="text-gray-600 mb-4 leading-relaxed">
+                        This is a <strong>demo version</strong> of the AI Robo-Advisor for Students, built for BorNEO HackWknd 2026.
+                    </p>
+                    <div class="bg-blue-50 border border-blue-200 p-4 mb-4 text-left" style="border-radius: 0.75rem;">
+                        <p class="text-sm text-gray-700 mb-2"><strong>✨ Features Available:</strong></p>
+                        <ul class="text-sm text-gray-600 space-y-1 list-disc list-inside">
+                            <li>Upload receipts with AI-powered OCR</li>
+                            <li>Track expenses and manage budgets</li>
+                            <li>Get personalized AI financial advice</li>
+                            <li>Analyze BNPL offers</li>
+                        </ul>
+                    </div>
+                    <p class="text-sm text-gray-500">
+                        <strong>Note:</strong> This demo contains sample data to showcase features. In production, each user would have their own isolated account.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Footer -->
+            <div class="p-6 border-t border-gray-200 flex-shrink-0">
+                <button onclick="closeDemoModal()" class="w-full primary-btn text-center justify-center flex items-center">
+                    Get Started
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Show demo modal on first visit
+        document.addEventListener('DOMContentLoaded', function() {
+            const hasSeenDemo = localStorage.getItem('hasSeenDemo');
+            if (!hasSeenDemo) {
+                const modal = document.getElementById('demoModal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    document.body.classList.add('modal-open');
+                }
+            }
+        });
+
+        function closeDemoModal() {
+            const modal = document.getElementById('demoModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                document.body.classList.remove('modal-open');
+                localStorage.setItem('hasSeenDemo', 'true');
+            }
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('demoModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeDemoModal();
+            }
+        });
+    </script>
+
     {% block scripts %}{% endblock %}
 </body>
 </html>
