@@ -278,6 +278,48 @@ Just return the advice text itself.
         except Exception as e:
             return f"Unable to generate advice at this time. Error: {str(e)}"
     
+    def _generate_fallback_warning(self, purchase_amount, total_cost, extra_cost, apr, risk_level, monthly_payment):
+        """Generate a contextual warning message when AI parsing fails"""
+        warnings = []
+        
+        if extra_cost > 0:
+            warnings.append(f"You'll pay ${extra_cost:.2f} extra (${total_cost:.2f} total instead of ${purchase_amount:.2f}).")
+        
+        if apr > 15:
+            warnings.append(f"The {apr:.1f}% APR is quite high - this is expensive debt.")
+        elif apr > 10:
+            warnings.append(f"The {apr:.1f}% APR is moderate but still adds up over time.")
+        
+        if monthly_payment > 200:
+            warnings.append(f"Monthly payments of ${monthly_payment:.2f} are significant for a student budget.")
+        elif monthly_payment > 100:
+            warnings.append(f"Monthly payments of ${monthly_payment:.2f} will impact your monthly spending.")
+        
+        if risk_level == 'High':
+            warnings.append("This is a high-risk offer - missing payments could hurt your credit and lead to fees.")
+        elif risk_level == 'Medium':
+            warnings.append("This offer has moderate risk - make sure you can commit to all payments.")
+        
+        return " ".join(warnings) if warnings else "Please review this offer carefully before committing."
+    
+    def _generate_fallback_recommendation(self, purchase_amount, monthly_payment, apr, risk_level):
+        """Generate a contextual recommendation when AI parsing fails"""
+        recommendations = []
+        
+        # Calculate savings alternative
+        if monthly_payment > 0:
+            months_to_save = max(1, int(purchase_amount / monthly_payment))
+            recommendations.append(f"If you save ${monthly_payment:.2f} per month, you could buy this in {months_to_save} month{'s' if months_to_save > 1 else ''} without paying interest.")
+        
+        if apr > 15 or risk_level == 'High':
+            recommendations.append("This offer is expensive - consider waiting and saving up instead, or look for a better deal.")
+        elif apr > 10:
+            recommendations.append("While manageable, saving up first would save you money on interest.")
+        else:
+            recommendations.append("If you must use BNPL, ensure you can make all payments on time to avoid fees.")
+        
+        return " ".join(recommendations) if recommendations else "Consider saving up instead of using BNPL to avoid interest and fees."
+    
     def analyze_bnpl_offer(self, bnpl_offer):
         """
         Analyze a BNPL offer and provide warnings about hidden costs
@@ -310,42 +352,76 @@ Just return the advice text itself.
             else:
                 risk_level = 'Low'
             
-            # Create prompt for AI analysis
+            # Calculate monthly payment for context
+            monthly_payment = total_cost / num_payments if num_payments > 0 else total_cost
+            extra_cost = total_cost - purchase_amount
+            extra_cost_percentage = (extra_cost / purchase_amount * 100) if purchase_amount > 0 else 0
+            
+            # Create detailed prompt for AI analysis
             prompt = f"""Analyze this Buy Now Pay Later (BNPL) offer for a student:
 
 Purchase Amount: ${purchase_amount:.2f}
-Number of Payments: {num_payments}
-Interest Rate: {interest_rate}%
+Number of Payments: {num_payments} ({num_payments // 12 if num_payments >= 12 else num_payments} {'years' if num_payments >= 12 else 'months'})
+Interest Rate: {interest_rate}% per period
 Additional Fees: ${fees:.2f}
 
 Calculated Values:
-- Total Cost: ${total_cost:.2f}
+- Total Cost: ${total_cost:.2f} (you'll pay ${extra_cost:.2f} extra, which is {extra_cost_percentage:.1f}% more)
+- Monthly Payment: ${monthly_payment:.2f}
 - Effective APR: {apr:.2f}%
 - Risk Level: {risk_level}
 
-Provide a clear warning message and recommendation for a student considering this offer.
-Keep it concise (2-3 sentences) and student-friendly.
+Context for a student:
+- Typical student monthly budget: $500-1000
+- This purchase is ${purchase_amount:.2f}, which is {'a significant' if purchase_amount > 500 else 'a moderate' if purchase_amount > 200 else 'a small'} expense
+- Monthly payment of ${monthly_payment:.2f} represents {'a large' if monthly_payment > 200 else 'a moderate' if monthly_payment > 100 else 'a small'} portion of typical student income
+
+Provide SPECIFIC and ACTIONABLE advice:
+
+1. WARNING MESSAGE (exactly 2-3 sentences, no more, no less):
+   - Highlight specific risks: hidden costs, payment discipline, impact on budget
+   - Compare the extra cost (${extra_cost:.2f}) to something relatable (e.g., "That's equivalent to X meals")
+   - Warn about consequences of missing payments
+   - If APR is high (>10%), explicitly mention it's expensive debt
+   - If payment period is long (>12 months), warn about commitment length
+   - Use specific numbers from the analysis
+
+2. RECOMMENDATION (exactly 2-3 sentences, no more, no less):
+   - Give concrete alternatives: "If you save $X per month, you could buy this in Y months without interest"
+   - Compare to alternatives: credit card (if APR is lower), saving up, or waiting for a sale
+   - If the offer is actually reasonable (low APR, short term), acknowledge that but still suggest saving first
+   - Provide a specific action plan
+   - Use specific numbers from the analysis
+
+Be direct, student-friendly, and use specific numbers from the offer. Don't be generic. Keep each section to exactly 2-3 sentences.
 
 Return a JSON object with these exact keys: total_cost (number), apr (number), risk_level (string: Low/Medium/High), warning_message (string), recommendation (string)."""
             
             # Use the same model as other features (gemini-3-flash-preview with fallback)
-            full_prompt = """You are a financial advisor specializing in debt management for students. Analyze BNPL offers and provide clear warnings.
+            full_prompt = """You are a financial advisor specializing in debt management for students. You help students avoid debt traps and make smart financial decisions.
+
+Your role: Analyze BNPL offers critically and provide SPECIFIC, ACTIONABLE advice with concrete numbers and alternatives. Be honest about risks - many BNPL offers are designed to trap students in debt cycles.
 
 """ + prompt + """
 
 IMPORTANT: Return ONLY a valid JSON object with these exact keys: total_cost, apr, risk_level, warning_message, recommendation.
-Do not include any markdown formatting, just the raw JSON."""
+Do not include any markdown formatting, just the raw JSON.
+warning_message must be exactly 2-3 sentences. recommendation must be exactly 2-3 sentences.
+Both must include specific numbers from the analysis."""
             
             # Try with the configured model (should be gemini-3-flash-preview)
             try:
                 response = self.text_model.generate_content(
                     full_prompt,
                     generation_config=genai.types.GenerationConfig(
-                        max_output_tokens=300,
-                        temperature=0.5
+                        temperature=0.7  # Slightly higher for more natural, contextual advice
                     )
                 )
                 content = response.text.strip()
+                # Debug: print raw Gemini response for BNPL analysis
+                print("\n===== Gemini RAW BNPL analysis response =====")
+                print(content)
+                print("===== END raw BNPL analysis response =====\n")
             except Exception as e:
                 print(f"Error calling AI model: {e}")
                 # Fallback: use calculated values only
@@ -388,8 +464,8 @@ Do not include any markdown formatting, just the raw JSON."""
                         'total_cost': float(total_cost_match.group(1)) if total_cost_match else total_cost,
                         'apr': float(apr_match.group(1)) if apr_match else apr,
                         'risk_level': risk_match.group(1) if risk_match else risk_level,
-                        'warning_message': warning_match.group(1) if warning_match else 'Please review this offer carefully.',
-                        'recommendation': recommendation_match.group(1) if recommendation_match else 'Consider saving up instead of using BNPL.'
+                        'warning_message': warning_match.group(1) if warning_match else self._generate_fallback_warning(purchase_amount, total_cost, extra_cost, apr, risk_level, monthly_payment),
+                        'recommendation': recommendation_match.group(1) if recommendation_match else self._generate_fallback_recommendation(purchase_amount, monthly_payment, apr, risk_level)
                     }
             
             # Merge calculated values with AI response (use calculated values as fallback)
@@ -397,8 +473,8 @@ Do not include any markdown formatting, just the raw JSON."""
                 'total_cost': float(ai_result.get('total_cost', total_cost)) if ai_result else total_cost,
                 'apr': float(ai_result.get('apr', apr)) if ai_result else apr,
                 'risk_level': ai_result.get('risk_level', risk_level) if ai_result else risk_level,
-                'warning_message': ai_result.get('warning_message', 'Please review this offer carefully.') if ai_result else 'Please review this offer carefully.',
-                'recommendation': ai_result.get('recommendation', 'Consider saving up instead of using BNPL.') if ai_result else 'Consider saving up instead of using BNPL.'
+                'warning_message': ai_result.get('warning_message', self._generate_fallback_warning(purchase_amount, total_cost, extra_cost, apr, risk_level, monthly_payment)) if ai_result else self._generate_fallback_warning(purchase_amount, total_cost, extra_cost, apr, risk_level, monthly_payment),
+                'recommendation': ai_result.get('recommendation', self._generate_fallback_recommendation(purchase_amount, monthly_payment, apr, risk_level)) if ai_result else self._generate_fallback_recommendation(purchase_amount, monthly_payment, apr, risk_level)
             }
             
             return result
