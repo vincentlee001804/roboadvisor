@@ -31,9 +31,15 @@
                 <input type="number" id="fees" step="0.01" min="0" value="0"
                        class="w-full border border-gray-300 rounded-lg px-4 py-2">
             </div>
-            <button type="submit" 
-                    class="w-full primary-btn bg-red-600 hover:bg-red-700 text-white justify-center flex items-center">
-                Analyze BNPL Offer
+            <button type="submit" id="analyzeBtn"
+                    class="w-full primary-btn bg-red-600 hover:bg-red-700 text-white justify-center flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
+                <span id="analyzeBtnText">Analyze BNPL Offer</span>
+                <span id="analyzeBtnSpinner" class="hidden ml-2">
+                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </span>
             </button>
         </form>
         
@@ -44,6 +50,17 @@
 <script>
 document.getElementById('bnplForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    // Show loading state
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const analyzeBtnText = document.getElementById('analyzeBtnText');
+    const analyzeBtnSpinner = document.getElementById('analyzeBtnSpinner');
+    const resultDiv = document.getElementById('bnplResult');
+    
+    analyzeBtn.disabled = true;
+    analyzeBtnText.textContent = 'Analyzing...';
+    analyzeBtnSpinner.classList.remove('hidden');
+    resultDiv.classList.add('hidden');
     
     const offer = {
         purchase_amount: parseFloat(document.getElementById('purchaseAmount').value),
@@ -66,7 +83,12 @@ document.getElementById('bnplForm').addEventListener('submit', async (e) => {
         }
         
         const result = await response.json();
-        const resultDiv = document.getElementById('bnplResult');
+        
+        // Hide loading state
+        analyzeBtn.disabled = false;
+        analyzeBtnText.textContent = 'Analyze BNPL Offer';
+        analyzeBtnSpinner.classList.add('hidden');
+        
         resultDiv.classList.remove('hidden');
         
         const riskColors = {
@@ -103,7 +125,11 @@ document.getElementById('bnplForm').addEventListener('submit', async (e) => {
             </div>
         `;
     } catch (error) {
-        const resultDiv = document.getElementById('bnplResult');
+        // Hide loading state
+        analyzeBtn.disabled = false;
+        analyzeBtnText.textContent = 'Analyze BNPL Offer';
+        analyzeBtnSpinner.classList.add('hidden');
+        
         resultDiv.classList.remove('hidden');
         resultDiv.innerHTML = `
             <div class="bg-red-50 border border-red-300 rounded-lg p-6">
