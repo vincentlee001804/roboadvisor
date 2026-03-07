@@ -178,24 +178,156 @@
         body.modal-open {
             overflow: hidden;
         }
+
+        /* Mobile Navigation */
+        .mobile-menu {
+            display: none;
+        }
+        .mobile-menu.active {
+            display: block;
+        }
+        @media (max-width: 768px) {
+            .desktop-nav {
+                display: none;
+            }
+            .mobile-menu {
+                display: block;
+            }
+            .mobile-menu:not(.active) {
+                display: none;
+            }
+        }
+        @media (min-width: 769px) {
+            .mobile-menu {
+                display: none !important;
+            }
+        }
+
+        /* Mobile-optimized buttons */
+        @media (max-width: 768px) {
+            .primary-btn, .secondary-btn {
+                min-height: 44px;
+                padding-inline: 1.25rem;
+                padding-block: 0.75rem;
+                font-size: 1rem;
+            }
+        }
+
+        /* Mobile-friendly tables */
+        @media (max-width: 768px) {
+            .mobile-card-view {
+                display: block;
+            }
+            .mobile-card-view table {
+                display: none;
+            }
+            .mobile-card-view .expense-card {
+                display: block;
+                background: white;
+                border-radius: 0.75rem;
+                padding: 1rem;
+                margin-bottom: 0.75rem;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            }
+        }
+        @media (min-width: 769px) {
+            .mobile-card-view .expense-card {
+                display: none;
+            }
+        }
+
+        /* Mobile-optimized modals */
+        @media (max-width: 768px) {
+            .modal-content {
+                max-height: 90vh;
+                margin: 1rem;
+                border-radius: 1rem;
+            }
+        }
+
+        /* Better touch targets */
+        @media (max-width: 768px) {
+            a, button {
+                min-height: 44px;
+                min-width: 44px;
+            }
+            input, select, textarea {
+                font-size: 16px; /* Prevents zoom on iOS */
+                padding: 0.75rem;
+            }
+        }
+
+        /* Mobile-optimized modals */
+        @media (max-width: 768px) {
+            .modal {
+                padding: 0.5rem;
+            }
+            .modal-content {
+                width: 100%;
+                max-width: 100%;
+                margin: 0.5rem;
+                max-height: 90vh;
+            }
+        }
     </style>
 </head>
 <body>
     <!-- Navigation -->
     <nav class="glass-nav text-white shadow-lg">
-        <div class="container mx-auto px-4 py-4">
+        <div class="container mx-auto px-4 py-3">
             <div class="flex justify-between items-center">
-                <h1 class="text-2xl font-bold">💰 AI Robo-Advisor</h1>
-                <div class="space-x-4">
-                    <a href="{{ url_for('index') }}" class="hover:underline">Dashboard</a>
-                    <a href="{{ url_for('upload_receipt') }}" class="hover:underline">Upload Receipt</a>
-                    <a href="{{ url_for('expenses') }}" class="hover:underline">Expenses</a>
-                    <a href="{{ url_for('budget') }}" class="hover:underline">Budget</a>
-                    <a href="{{ url_for('advice') }}" class="hover:underline">Advice</a>
+                <h1 class="text-xl md:text-2xl font-bold">💰 AI Robo-Advisor</h1>
+                <!-- Desktop Navigation -->
+                <div class="desktop-nav space-x-4 hidden md:flex">
+                    <a href="{{ url_for('index') }}" class="hover:underline px-2 py-1">Dashboard</a>
+                    <a href="{{ url_for('upload_receipt') }}" class="hover:underline px-2 py-1">Upload</a>
+                    <a href="{{ url_for('expenses') }}" class="hover:underline px-2 py-1">Expenses</a>
+                    <a href="{{ url_for('budget') }}" class="hover:underline px-2 py-1">Budget</a>
+                    <a href="{{ url_for('advice') }}" class="hover:underline px-2 py-1">Advice</a>
+                </div>
+                <!-- Mobile Menu Button -->
+                <button id="mobileMenuBtn" class="md:hidden text-white p-2" onclick="toggleMobileMenu()">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path id="menuIcon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+            </div>
+            <!-- Mobile Menu -->
+            <div id="mobileMenu" class="mobile-menu mt-4 pb-2">
+                <div class="flex flex-col space-y-2">
+                    <a href="{{ url_for('index') }}" class="block px-4 py-3 hover:bg-white/10 rounded-lg">Dashboard</a>
+                    <a href="{{ url_for('upload_receipt') }}" class="block px-4 py-3 hover:bg-white/10 rounded-lg">Upload Receipt</a>
+                    <a href="{{ url_for('expenses') }}" class="block px-4 py-3 hover:bg-white/10 rounded-lg">Expenses</a>
+                    <a href="{{ url_for('budget') }}" class="block px-4 py-3 hover:bg-white/10 rounded-lg">Budget</a>
+                    <a href="{{ url_for('advice') }}" class="block px-4 py-3 hover:bg-white/10 rounded-lg">Advice</a>
                 </div>
             </div>
         </div>
     </nav>
+
+    <script>
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobileMenu');
+            const icon = document.getElementById('menuIcon');
+            menu.classList.toggle('active');
+            if (menu.classList.contains('active')) {
+                icon.setAttribute('d', 'M6 18L18 6M6 6l12 12');
+            } else {
+                icon.setAttribute('d', 'M4 6h16M4 12h16M4 18h16');
+            }
+        }
+        // Close mobile menu when clicking outside
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('mobileMenu');
+            const btn = document.getElementById('mobileMenuBtn');
+            if (menu && btn && !menu.contains(event.target) && !btn.contains(event.target)) {
+                if (menu.classList.contains('active')) {
+                    menu.classList.remove('active');
+                    document.getElementById('menuIcon').setAttribute('d', 'M4 6h16M4 12h16M4 18h16');
+                }
+            }
+        });
+    </script>
 
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -211,7 +343,7 @@
     {% endwith %}
 
     <!-- Main Content -->
-    <main class="container mx-auto px-4 py-8" style="flex: 1 0 auto;">
+    <main class="container mx-auto px-3 md:px-4 py-4 md:py-8" style="flex: 1 0 auto;">
         {% block content %}{% endblock %}
     </main>
 
