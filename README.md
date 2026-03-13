@@ -5,6 +5,7 @@ A personalized financial management tool designed for students, featuring automa
 ## 🌐 Live Demo
 
 **Live Application:** [https://roboadvisor-bjfs.onrender.com](https://roboadvisor-bjfs.onrender.com)
+**Demp Video:** [https://drive.google.com/file/d/1LBBW6cZb_wah4X1UJFJOMOVv2IvfhNe_/view?usp=sharing](https://drive.google.com/file/d/1LBBW6cZb_wah4X1UJFJOMOVv2IvfhNe_/view?usp=sharing)
 
 The application is currently deployed on Render and accessible via the link above.
 
